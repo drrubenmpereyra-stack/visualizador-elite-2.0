@@ -172,14 +172,14 @@
     </div>
 
     <script>
-        // 1. CONFIGURACIÓN DE FIREBASE (Reemplaza con las credenciales de tu proyecto Elite 2.0)
+        // Configuración de Firebase integrada para materiales-terapeuticos
         const firebaseConfig = {
-            apiKey: "TU_API_KEY",
-            authDomain: "tu-proyecto.firebaseapp.com",
-            projectId: "tu-proyecto-id",
-            storageBucket: "tu-proyecto.appspot.com",
-            messagingSenderId: "TU_SENDER_ID",
-            appId: "TU_APP_ID"
+            apiKey: "AIzaSyCJietA0GuHsUpkN2-lk38Y3L6VDROxvZs",
+            authDomain: "materiales-terapeuticos.firebaseapp.com",
+            projectId: "materiales-terapeuticos",
+            storageBucket: "materiales-terapeuticos.firebasestorage.app",
+            messagingSenderId: "827133493876",
+            appId: "1:827133493876:web:7d51b4befe64e0f8dfc721"
         };
 
         // Inicializar Firebase
@@ -210,7 +210,7 @@
             patientLabel.innerText = `ID de Paciente: ${patientId}`;
 
             try {
-                // Consultas paralelas a las colecciones de Elite 2.0 en Firestore
+                // Consultas paralelas a las colecciones en Firestore
                 const [labsSnap, signosSnap, informesSnap] = await Promise.all([
                     db.collection('patients').doc(patientId).collection('laboratorios').get(),
                     db.collection('patients').doc(patientId).collection('signos_vitales').get(),
@@ -264,7 +264,7 @@
             } catch (error) {
                 console.error("Error al sincronizar con Firestore:", error);
                 errorBox.style.display = 'block';
-                errorBox.innerText = "Error de conexión con la base de datos de Elite 2.0.";
+                errorBox.innerText = "Error de conexión con la base de datos de materiales-terapeuticos.";
                 containerList.innerHTML = "";
             }
         }
@@ -288,7 +288,7 @@
                             <div style="font-size: 0.8rem; font-weight: bold; color: #0284c7; text-transform: uppercase;">[${itemData.tipo}] - ${fechaStr}</div>
                             <h3 style="font-size: 1.1rem; margin: 4px 0 8px 0; color: #0f172a;">${itemData.titulo || itemData.resumen || ''}</h3>
                             <div style="font-size: 0.95rem; color: #334155; line-height: 1.5;">
-                                ${itemData.detalle || itemData.contenido || 'Contenido del registro sincronizado desde Elite 2.0.'}
+                                ${itemData.detalle || itemData.contenido || 'Contenido del registro sincronizado.'}
                             </div>
                         </div>
                     `;
