@@ -117,30 +117,21 @@
             color: #0369a1;
             margin-bottom: 4px;
         }
-        .manual-input-box {
+        .selector-box {
             background: #f8fafc;
-            border: 1px dashed #cbd5e1;
-            padding: 10px;
+            border: 1px solid #cbd5e1;
+            padding: 12px;
             border-radius: 8px;
             margin-bottom: 12px;
             display: none;
         }
-        .manual-input-box input {
-            width: 70%;
-            padding: 6px;
-            border: 1px solid #cbd5e1;
-            border-radius: 4px;
-            font-size: 0.85rem;
-        }
-        .manual-input-box button {
-            width: 27%;
-            padding: 6px;
-            background: #0f172a;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            font-size: 0.85rem;
-            cursor: pointer;
+        .selector-box select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #94a3b8;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            background: #fff;
         }
 
         @media print {
@@ -161,19 +152,18 @@
         <!-- Panel Izquierdo: Selección -->
         <div class="elite-panel-sidebar">
             <h3>Visor Elite 2.0</h3>
-            <p class="elite-subtitle" id="patient-info-label">Cargando...</p>
+            <p class="elite-subtitle" id="patient-info-label">Cargando sistema...</p>
             
-            <!-- Caja auxiliar por si se abre sin ID en la URL -->
-            <div id="manual-box" class="manual-input-box">
-                <p style="font-size: 0.8rem; margin-bottom: 6px; color: #475569;">Ingresa un ID de paciente:</p>
-                <div style="display: flex; justify-content: space-between;">
-                    <input type="text" id="input-patient-id" placeholder="Ej: p123 o ID de Firestore">
-                    <button onclick="cargarPacienteManual()">Cargar</button>
-                </div>
+            <!-- Selector automático de pacientes si no viene por URL -->
+            <div id="selector-container" class="selector-box">
+                <p style="font-size: 0.85rem; margin-bottom: 6px; font-weight: 600; color: #334155;">Seleccionar paciente:</p>
+                <select id="patient-select" onchange="seleccionarPacienteDirecto(this.value)">
+                    <option value="">-- Cargando lista de pacientes... --</option>
+                </select>
             </div>
             
             <div id="elite-items-list" class="elite-list">
-                <p style="text-align: center; color: #64748b; margin-top: 20px;">Esperando identificación del paciente...</p>
+                <p style="text-align: center; color: #64748b; margin-top: 20px;">Seleccione un paciente para ver sus registros.</p>
             </div>
             
             <div class="elite-actions">
@@ -213,31 +203,49 @@
         let patientId = urlParams.get('patientId');
         let cacheDatosPaciente = [];
 
-        window.onload = () => {
+        window.onload = async () => {
             if (!patientId) {
-                document.getElementById('patient-info-label').innerText = "Modo manual (Sin ID en URL)";
-                document.getElementById('manual-box').style.display = 'block';
-                document.getElementById('elite-items-list').innerHTML = "<p style='text-align: center; color: #64748b; margin-top: 20px;'>Escribe un ID arriba para buscar registros.</p>";
+                // Si no hay ID en la URL, cargamos el listado completo de pacientes desde Firestore
+                document.getElementById('selector-container').style.display = 'block';
+                document.getElementById('patient-info-label').innerText = "Modo interactivo (Elige un paciente)";
+                await cargarListaPacientes();
             } else {
-                inicializarVisualizador(patientId);
+                // Si viene el ID en la URL (ideal para cuando se conecte desde Elite 2.0)
+                document.getElementById('patient-info-label').innerText = `ID Activo: ${patientId}`;
+                await inicializarVisualizador(patientId);
             }
         };
 
-        function cargarPacienteManual() {
-            const inputVal = document.getElementById('input-patient-id').value.trim();
-            if (!inputVal) {
-                alert("Por favor ingresa un ID válido.");
-                return;
+        async function cargarListaPacientes() {
+            const select = document.getElementById('patient-select');
+            try {
+                const snapshot = await db.collection('patients').get();
+                if (snapshot.empty) {
+                    select.innerHTML = '<option value="">No hay pacientes registrados en Firestore</option>';
+                    return;
+                }
+
+                select.innerHTML = '<option value="">-- Seleccione un paciente --</option>';
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    // Intentamos mostrar nombre, apellido o DNI si existen, sino mostramos el ID
+                    const nombreCompleto = data.nombre && data.apellido ? `${data.apellido}, ${data.nombre}` : (data.nombre || `Paciente (${doc.id})`);
+                    select.innerHTML += `<option value="${doc.id}">${nombreCompleto} [ID: ${doc.id}]</option>`;
+                });
+            } catch (error) {
+                console.error(error);
+                select.innerHTML = '<option value="">Error al cargar pacientes</option>';
             }
-            patientId = inputVal;
+        }
+
+        function seleccionarPacienteDirecto(idSeleccionado) {
+            if (!idSeleccionado) return;
+            patientId = idSeleccionado;
             inicializarVisualizador(patientId);
         }
 
         async function inicializarVisualizador(idPaciente) {
             const containerList = document.getElementById('elite-items-list');
-            const patientLabel = document.getElementById('patient-info-label');
-            
-            patientLabel.innerText = `ID de Paciente: ${idPaciente}`;
             containerList.innerHTML = "<p style='text-align: center; color: #64748b; margin-top: 20px;'>Cargando registros...</p>";
 
             try {
@@ -260,7 +268,8 @@
                 procesarDocs(informesSnap, 'Informe Médico');
 
                 if (cacheDatosPaciente.length === 0) {
-                    containerList.innerHTML = "<p style='text-align: center; color: #e11d48; margin-top: 20px;'>No se encontraron registros para este ID en Firestore.</p>";
+                    containerList.innerHTML = "<p style='text-align: center; color: #e11d48; margin-top: 20px;'>Este paciente no tiene registros guardados.</p>";
+                    document.getElementById('elite-preview-content').innerHTML = "<p style='color: #94a3b8; font-style: italic;'>Sin elementos.</p>";
                     return;
                 }
 
@@ -291,7 +300,7 @@
 
             } catch (error) {
                 console.error(error);
-                containerList.innerHTML = "<p style='text-align: center; color: #e11d48; margin-top: 20px;'>Error al consultar la base de datos.</p>";
+                containerList.innerHTML = "<p style='text-align: center; color: #e11d48; margin-top: 20px;'>Error al consultar los registros.</p>";
             }
         }
 
@@ -327,7 +336,7 @@
                                        .map(chk => chk.value);
 
             if (seleccionados.length === 0 || !patientId) {
-                alert("Seleccione al menos un registro y asegúrese de tener un paciente cargado.");
+                alert("Seleccione un paciente y al menos un registro.");
                 return;
             }
 
