@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Visualizador Consolidado - Elite 2.0</title>
-    <!-- SDK de Firebase (Compat version para facilitar integración directa) -->
+    <!-- SDK de Firebase (Compat version) -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     
@@ -117,17 +117,32 @@
             color: #0369a1;
             margin-bottom: 4px;
         }
-        .error-banner {
-            background: #fee2e2;
-            color: #991b1b;
+        .manual-input-box {
+            background: #f8fafc;
+            border: 1px dashed #cbd5e1;
             padding: 10px;
-            border-radius: 6px;
-            font-size: 0.9rem;
-            margin-bottom: 10px;
+            border-radius: 8px;
+            margin-bottom: 12px;
             display: none;
         }
+        .manual-input-box input {
+            width: 70%;
+            padding: 6px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+        .manual-input-box button {
+            width: 27%;
+            padding: 6px;
+            background: #0f172a;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
 
-        /* Reglas de impresión profesional */
         @media print {
             body { background: #fff; padding: 0; }
             .elite-panel-sidebar { display: none; }
@@ -146,11 +161,19 @@
         <!-- Panel Izquierdo: Selección -->
         <div class="elite-panel-sidebar">
             <h3>Visor Elite 2.0</h3>
-            <p class="elite-subtitle" id="patient-info-label">Cargando paciente...</p>
-            <div id="error-box" class="error-banner"></div>
+            <p class="elite-subtitle" id="patient-info-label">Cargando...</p>
+            
+            <!-- Caja auxiliar por si se abre sin ID en la URL -->
+            <div id="manual-box" class="manual-input-box">
+                <p style="font-size: 0.8rem; margin-bottom: 6px; color: #475569;">Ingresa un ID de paciente:</p>
+                <div style="display: flex; justify-content: space-between;">
+                    <input type="text" id="input-patient-id" placeholder="Ej: p123 o ID de Firestore">
+                    <button onclick="cargarPacienteManual()">Cargar</button>
+                </div>
+            </div>
             
             <div id="elite-items-list" class="elite-list">
-                <p style="text-align: center; color: #64748b; margin-top: 20px;">Conectando con la base de datos...</p>
+                <p style="text-align: center; color: #64748b; margin-top: 20px;">Esperando identificación del paciente...</p>
             </div>
             
             <div class="elite-actions">
@@ -172,7 +195,6 @@
     </div>
 
     <script>
-        // Configuración de Firebase integrada para materiales-terapeuticos
         const firebaseConfig = {
             apiKey: "AIzaSyCJietA0GuHsUpkN2-lk38Y3L6VDROxvZs",
             authDomain: "materiales-terapeuticos.firebaseapp.com",
@@ -182,39 +204,47 @@
             appId: "1:827133493876:web:7d51b4befe64e0f8dfc721"
         };
 
-        // Inicializar Firebase
         if (!firebase.apps.length) {
             firebase.initializeApp(firebaseConfig);
         }
         const db = firebase.firestore();
 
-        // Obtener el ID del paciente desde la URL (ej: index.html?patientId=ABC123XYZ)
         const urlParams = new URLSearchParams(window.location.search);
-        const patientId = urlParams.get('patientId');
-
+        let patientId = urlParams.get('patientId');
         let cacheDatosPaciente = [];
 
-        async function inicializarVisualizador() {
-            const containerList = document.getElementById('elite-items-list');
-            const patientLabel = document.getElementById('patient-info-label');
-            const errorBox = document.getElementById('error-box');
-
+        window.onload = () => {
             if (!patientId) {
-                errorBox.style.display = 'block';
-                errorBox.innerText = "Error: No se especificó un 'patientId' en la URL.";
-                patientLabel.innerText = "Paciente no identificado";
-                containerList.innerHTML = "";
+                document.getElementById('patient-info-label').innerText = "Modo manual (Sin ID en URL)";
+                document.getElementById('manual-box').style.display = 'block';
+                document.getElementById('elite-items-list').innerHTML = "<p style='text-align: center; color: #64748b; margin-top: 20px;'>Escribe un ID arriba para buscar registros.</p>";
+            } else {
+                inicializarVisualizador(patientId);
+            }
+        };
+
+        function cargarPacienteManual() {
+            const inputVal = document.getElementById('input-patient-id').value.trim();
+            if (!inputVal) {
+                alert("Por favor ingresa un ID válido.");
                 return;
             }
+            patientId = inputVal;
+            inicializarVisualizador(patientId);
+        }
 
-            patientLabel.innerText = `ID de Paciente: ${patientId}`;
+        async function inicializarVisualizador(idPaciente) {
+            const containerList = document.getElementById('elite-items-list');
+            const patientLabel = document.getElementById('patient-info-label');
+            
+            patientLabel.innerText = `ID de Paciente: ${idPaciente}`;
+            containerList.innerHTML = "<p style='text-align: center; color: #64748b; margin-top: 20px;'>Cargando registros...</p>";
 
             try {
-                // Consultas paralelas a las colecciones en Firestore
                 const [labsSnap, signosSnap, informesSnap] = await Promise.all([
-                    db.collection('patients').doc(patientId).collection('laboratorios').get(),
-                    db.collection('patients').doc(patientId).collection('signos_vitales').get(),
-                    db.collection('patients').doc(patientId).collection('informes_medicos').get()
+                    db.collection('patients').doc(idPaciente).collection('laboratorios').get(),
+                    db.collection('patients').doc(idPaciente).collection('signos_vitales').get(),
+                    db.collection('patients').doc(idPaciente).collection('informes_medicos').get()
                 ]);
 
                 cacheDatosPaciente = [];
@@ -230,18 +260,16 @@
                 procesarDocs(informesSnap, 'Informe Médico');
 
                 if (cacheDatosPaciente.length === 0) {
-                    containerList.innerHTML = "<p style='text-align: center; color: #64748b; margin-top: 20px;'>No se encontraron registros para este paciente.</p>";
+                    containerList.innerHTML = "<p style='text-align: center; color: #e11d48; margin-top: 20px;'>No se encontraron registros para este ID en Firestore.</p>";
                     return;
                 }
 
-                // Ordenar por fecha descendente si el campo existe
                 cacheDatosPaciente.sort((a, b) => {
                     const fechaA = a.fecha?.toMillis ? a.fecha.toMillis() : 0;
                     const fechaB = b.fecha?.toMillis ? b.fecha.toMillis() : 0;
                     return fechaB - fechaA;
                 });
 
-                // Renderizar listado de selección
                 containerList.innerHTML = "";
                 cacheDatosPaciente.forEach(item => {
                     let fechaStr = "Fecha no registrada";
@@ -262,10 +290,8 @@
                 });
 
             } catch (error) {
-                console.error("Error al sincronizar con Firestore:", error);
-                errorBox.style.display = 'block';
-                errorBox.innerText = "Error de conexión con la base de datos de materiales-terapeuticos.";
-                containerList.innerHTML = "";
+                console.error(error);
+                containerList.innerHTML = "<p style='text-align: center; color: #e11d48; margin-top: 20px;'>Error al consultar la base de datos.</p>";
             }
         }
 
@@ -296,13 +322,12 @@
             });
         }
 
-        // Guardar reporte consolidado en Firestore
         document.getElementById('btn-save-report').addEventListener('click', async () => {
             const seleccionados = Array.from(document.querySelectorAll('#elite-items-list input[type="checkbox"]:checked'))
                                        .map(chk => chk.value);
 
-            if (seleccionados.length === 0) {
-                alert("Seleccione al menos un informe o gráfico para guardar.");
+            if (seleccionados.length === 0 || !patientId) {
+                alert("Seleccione al menos un registro y asegúrese de tener un paciente cargado.");
                 return;
             }
 
@@ -315,17 +340,13 @@
                 alert("¡Reporte consolidado guardado exitosamente en la historia clínica!");
             } catch (e) {
                 console.error(e);
-                alert("Ocurrió un error al guardar el reporte en la base de datos.");
+                alert("Ocurrió un error al guardar el reporte.");
             }
         });
 
-        // Impresión limpia del navegador
         document.getElementById('btn-print-report').addEventListener('click', () => {
             window.print();
         });
-
-        // Inicializar al cargar la página
-        inicializarVisualizador();
     </script>
 </body>
 </html>
